@@ -55,9 +55,39 @@ export default {
       wall.position.z = -10;  // 카메라 뒤에 벽 배치
       scene.add(wall);
 
+      // 텍스처에 글자 추가
+      const createTextTexture = (text) => {
+        const canvas = document.createElement('canvas');
+        const context = canvas.getContext('2d');
+        const size = 256;
+
+        canvas.width = size;
+        canvas.height = size;
+
+        // 배경 색상 설정
+        context.fillStyle = 'white';
+        context.fillRect(0, 0, size, size);
+
+        // 텍스트 스타일 설정
+        context.fillStyle = 'black';
+        context.font = '48px Arial';
+        context.textAlign = 'center';
+        context.textBaseline = 'middle';
+
+        // 텍스트 그리기
+        context.fillText(text, size / 2, size / 2);
+
+        return new THREE.CanvasTexture(canvas);
+      };
+
+      const texture = createTextTexture('   Na   ');
+
       // 구체 생성
       const geometry = new THREE.SphereGeometry(0.4, 64, 64);
-      const material = new THREE.MeshPhongMaterial({ color: 'red', shininess: 100 });
+      const material = new THREE.MeshPhongMaterial({
+        map: texture,
+        shininess: 100
+      });
       const sphere = new THREE.Mesh(geometry, material);
       scene.add(sphere);
 
