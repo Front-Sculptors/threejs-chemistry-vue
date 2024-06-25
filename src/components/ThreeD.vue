@@ -66,13 +66,13 @@ export default {
 
         // 배경 색상 설정
         context.fillStyle = 'white';
-        context.fillRect(0, 0, size, size);
+        context.fillRect(0, 0, size, size); 
 
         // 텍스트 스타일 설정
         context.fillStyle = 'black';
         context.font = '48px Arial';
         context.textAlign = 'center';
-        context.textBaseline = 'middle';
+        context.textBaseline = 'middle'; 
 
         // 텍스트 그리기
         context.fillText(text, size / 2, size / 2);
@@ -80,16 +80,17 @@ export default {
         return new THREE.CanvasTexture(canvas);
       };
 
-      const texture = createTextTexture('   Na   ');
+      const texture = createTextTexture('   Na   '); // 구체 표면에 나오는 글씨
 
       // 구체 생성
-      const geometry = new THREE.SphereGeometry(0.4, 64, 64);
+      const geometry = new THREE.SphereGeometry(0.4, 64, 64); // SphereGeometry 생성하여 구체를 만듦
+      // 재질 생성
       const material = new THREE.MeshPhongMaterial({
         map: texture,
-        shininess: 100
+        shininess: 100, // 제일 맨들맨들하게, 반사 잘되게
       });
-      const sphere = new THREE.Mesh(geometry, material);
-      scene.add(sphere);
+      const sphere = new THREE.Mesh(geometry, material); // 이 둘을 합쳐서
+      scene.add(sphere); // 씬에 생성
 
       // Raycaster와 Mouse Vector 설정
       const raycaster = new THREE.Raycaster();
