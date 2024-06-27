@@ -5,11 +5,11 @@
 </template>
 
 <script>
-import * as THREE from 'three';
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
+import * as THREE from "three";
+import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 
 export default {
-  name: 'ThreeDView',
+  name: "ThreeDView",
   mounted() {
     this.initThree();
   },
@@ -26,8 +26,14 @@ export default {
       const scene = new THREE.Scene();
 
       // 카메라 생성
-      const camera = new THREE.PerspectiveCamera(32, window.innerWidth / window.innerHeight, 0.1, 1000);
+      const camera = new THREE.PerspectiveCamera(
+        32,
+        window.innerWidth / window.innerHeight,
+        0.1,
+        1000
+      );
       camera.position.z = 5;
+      this.camera = camera; // 카메라를 this에 저장
 
       // OrbitControls 설정
       const controls = new OrbitControls(camera, renderer.domElement);
@@ -37,42 +43,49 @@ export default {
 
       // 광원 추가
       const light = new THREE.DirectionalLight(0xffffff, 1);
-      light.position.set(5, 5, 5).normalize();
+      light.position.copy(camera.position); // 광원 위치를 카메라 위치로 설정
       scene.add(light);
+      this.light = light; // 광원을 this에 저장
 
       // 바닥 생성
       const floorGeometry = new THREE.PlaneGeometry(100, 100);
-      const floorMaterial = new THREE.MeshBasicMaterial({ color: 0xaaaaaa, side: THREE.DoubleSide });
+      const floorMaterial = new THREE.MeshBasicMaterial({
+        color: 0xaaaaaa,
+        side: THREE.DoubleSide,
+      });
       const floor = new THREE.Mesh(floorGeometry, floorMaterial);
       floor.rotation.x = Math.PI / 2;
-      floor.position.y = -1;  // 구체 아래에 바닥 배치
+      floor.position.y = -1; // 구체 아래에 바닥 배치
       scene.add(floor);
 
       // 벽 생성
       const wallGeometry = new THREE.PlaneGeometry(100, 100);
-      const wallMaterial = new THREE.MeshBasicMaterial({ color: 0xcccccc, side: THREE.DoubleSide });
+      const wallMaterial = new THREE.MeshBasicMaterial({
+        color: 0xcccccc,
+        side: THREE.DoubleSide,
+      });
       const wall = new THREE.Mesh(wallGeometry, wallMaterial);
-      wall.position.z = -10;  // 카메라 뒤에 벽 배치
+      wall.position.z = -10; // 카메라 뒤에 벽 배치
       scene.add(wall);
 
       // 텍스처에 글자 추가
       const createTextTexture = (text) => {
-        const canvas = document.createElement('canvas');
-        const context = canvas.getContext('2d');
+        const canvas = document.createElement("canvas");
+        const context = canvas.getContext("2d");
         const size = 256;
 
         canvas.width = size;
         canvas.height = size;
 
         // 배경 색상 설정
-        context.fillStyle = 'white';
-        context.fillRect(0, 0, size, size); 
+        context.fillStyle = "white";
+        context.fillRect(0, 0, size, size);
 
         // 텍스트 스타일 설정
-        context.fillStyle = 'black';
-        context.font = '48px Arial';
-        context.textAlign = 'center';
-        context.textBaseline = 'middle'; 
+        context.fillStyle = "black";
+        context.font = "48px Arial";
+        context.textAlign = "center";
+        context.textBaseline = "middle";
 
         // 텍스트 그리기
         context.fillText(text, size / 2, size / 2);
@@ -80,7 +93,7 @@ export default {
         return new THREE.CanvasTexture(canvas);
       };
 
-      const texture = createTextTexture('   Na   '); // 구체 표면에 나오는 글씨
+      const texture = createTextTexture("   Na   "); // 구체 표면에 나오는 글씨
 
       // 구체 생성
       const geometry = new THREE.SphereGeometry(0.4, 64, 64); // SphereGeometry 생성하여 구체를 만듦
@@ -121,7 +134,10 @@ export default {
           offset.copy(intersectPoint).sub(selectedObject.position);
 
           // 평면을 클릭 위치와 카메라 방향으로 설정
-          plane.setFromNormalAndCoplanarPoint(camera.getWorldDirection(plane.normal), intersectPoint);
+          plane.setFromNormalAndCoplanarPoint(
+            camera.getWorldDirection(plane.normal),
+            intersectPoint
+          );
         }
       };
 
@@ -150,14 +166,16 @@ export default {
       };
 
       // 이벤트 리스너 설정
-      window.addEventListener('mousedown', onMouseDown, false);
-      window.addEventListener('mousemove', onMouseMove, false);
-      window.addEventListener('mouseup', onMouseUp, false);
+      window.addEventListener("mousedown", onMouseDown, false);
+      window.addEventListener("mousemove", onMouseMove, false);
+      window.addEventListener("mouseup", onMouseUp, false);
 
       // 개체의 좌표값을 화면에 표시
       const updateCoordinates = () => {
         const { x, y, z } = sphere.position;
-        this.$refs.coordinates.innerText = `Coordinates: x=${x.toFixed(2)}, y=${y.toFixed(2)}, z=${z.toFixed(2)}`;
+        this.$refs.coordinates.innerText = `Coordinates: x=${x.toFixed(
+          2
+        )}, y=${y.toFixed(2)}, z=${z.toFixed(2)}`;
       };
 
       // 애니메이션 루프
@@ -165,17 +183,20 @@ export default {
         requestAnimationFrame(animate);
         controls.update();
         renderer.render(scene, camera);
+
+        // 카메라 위치를 기반으로 광원 위치 업데이트
+        light.position.copy(camera.position);
       };
       animate();
 
       // 윈도우 리사이즈 이벤트 핸들러
-      window.addEventListener('resize', () => {
+      window.addEventListener("resize", () => {
         camera.aspect = window.innerWidth / window.innerHeight;
         camera.updateProjectionMatrix();
         renderer.setSize(window.innerWidth, window.innerHeight);
       });
-    }
-  }
+    },
+  },
 };
 </script>
 
