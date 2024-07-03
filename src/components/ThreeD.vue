@@ -1,24 +1,29 @@
 <template>
   <div class="container">
     <div ref="sceneContainer" class="scene-container"></div>
-    <div class="controls-container">
-      <input v-model="inputString" placeholder="예: I -1 -1 -1" @keyup.enter="addSphere" />
-      <button @click="addSphere">Add Sphere</button>
+    <div class="controls-container p-[12px] rounded-xl">
+      <div class="flex items-center justify-start">
+        <input 
+          v-model="inputString" 
+          placeholder="예: I -1 -1 -1" 
+          @keyup.enter="addSphere" 
+          class="rounded-lg text-[16px] p-2 border border-gray-500 mr-2 placeholder-gray-600"
+        />
+        <button @click="addSphere" class="h-[40px] bg-gray-500 rounded-lg text-white p-2">추가하기</button>
+      </div>
       <div class="coordinates">
         <div v-for="(sphere, index) in spheres" :key="sphere.uuid">
-          <p>
-            {{ sphere.name }}:
+          <p class="text-[16px] font-medium">
+            <span class="text-red-500 text-[18px]">{{ sphere.name }} :</span>
             x={{ sphere.position.x.toFixed(2) }}, y={{ sphere.position.y.toFixed(2) }}, z={{ sphere.position.z.toFixed(2) }}
           </p>
         </div>
       </div>
-      <div class="selected-spheres">
-        <h3>Selected Spheres:</h3>
-        <ul>
-          <li v-for="(sphere, index) in selectedSpheres" :key="sphere.uuid">
+      <div class="selected-spheres flex gap-[8px]">
+        <h3 class="text-[16px] font-semibold">선택한 원자 :</h3>
+          <div v-for="(sphere, index) in selectedSpheres" :key="sphere.uuid">
             {{ sphere.name }}
-          </li>
-        </ul>
+          </div>
       </div>
     </div>
     <div class="axes-container" ref="axesContainer"></div>
@@ -637,7 +642,6 @@ body {
   display: flex;
   width: 100%;
   height: 100vh;
-  position: relative;
 }
 
 .scene-container {
@@ -651,8 +655,6 @@ body {
   top: 10px;
   right: 10px;
   background-color: rgba(255, 255, 255, 0.9);
-  padding: 10px;
-  border-radius: 5px;
 }
 
 .coordinates {
@@ -665,13 +667,7 @@ body {
   max-height: 200px;
 }
 
-.selected-spheres {
-  margin-top: 10px;
-  padding: 10px;
-  background-color: rgba(255, 255, 255, 0.9);
-  font-family: Arial, sans-serif;
-  font-size: 14px;
-}
+
 
 .instructions {
   position: absolute;
@@ -686,7 +682,7 @@ body {
 
 .axes-container {
   position: absolute;
-  bottom: 160px;
+  bottom: 100px;
   left: 10px;
   width: 300px; /* 크기를 300px로 조정 */
   height: 300px; /* 크기를 300px로 조정 */
