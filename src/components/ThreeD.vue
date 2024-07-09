@@ -3,16 +3,19 @@
     <div ref="sceneContainer" class="scene-container"></div>
     <div class="controls-container p-[12px] rounded-xl">
       <div class="flex items-center justify-start">
-        <input v-model="inputString" placeholder="예: I -1 -1 -1" @keyup.enter="addSphere"
-          class="rounded-lg text-[16px] p-2 border border-gray-500 mr-2 placeholder-gray-600" />
-        <button @click="addSphere" class="h-[40px] bg-gray-500 rounded-lg text-white p-2">추가하기</button>
+        <!-- input을 textarea로 변경하여 여러 줄 입력 가능하도록 수정 -->
+        <textarea 
+          v-model="inputString" 
+          placeholder="예: H 1 1 1&#10;C 2 2 2" 
+          class="rounded-lg text-[16px] p-2 border border-gray-500 mr-2 placeholder-gray-600">
+        </textarea>
+        <button @click="addSpheres" class="h-[40px] bg-gray-500 rounded-lg text-white p-2">추가하기</button>
       </div>
       <div class="coordinates">
         <div v-for="(sphere, index) in spheres" :key="sphere.uuid">
           <p class="text-[16px] font-medium">
             <span class="text-red-500 text-[18px]">{{ sphere.name }} :</span>
-            x={{ sphere.position.x.toFixed(2) }}, y={{ sphere.position.y.toFixed(2) }}, z={{
-              sphere.position.z.toFixed(2) }}
+            x={{ sphere.position.x.toFixed(2) }}, y={{ sphere.position.y.toFixed(2) }}, z={{ sphere.position.z.toFixed(2) }}
           </p>
         </div>
       </div>
@@ -30,6 +33,7 @@
     </div>
   </div>
 </template>
+
 
 <script>
 import { ref, onMounted } from 'vue';
@@ -192,16 +196,22 @@ export default {
     };
 
     const deleteSphere = (sphere) => {
+      // 본드를 제거합니다.
       bonds.value = bonds.value.filter(bond => {
         if (bond.sphere1 === sphere || bond.sphere2 === sphere) {
           scene.remove(bond.bond);
-          if (bond.bond.geometry) bond.bond.geometry.dispose();
-          if (bond.bond.material) bond.bond.material.dispose();
+          bond.bond.geometry.dispose();
+          bond.bond.material.dispose();
           return false;
         }
         return true;
       });
 
+      // 선택된 구체의 반투명 상태를 원래대로 돌립니다.
+      sphere.material.opacity = 1;
+      sphere.material.transparent = false;
+
+      // 구체를 씬에서 제거합니다.
       scene.remove(sphere);
       if (sphere.geometry) sphere.geometry.dispose();
       if (sphere.material) {
@@ -209,20 +219,18 @@ export default {
         sphere.material.dispose();
       }
 
+      // 구체 배열에서 제거합니다.
       spheres.value = spheres.value.filter(s => s !== sphere);
       selectedSpheres.value = selectedSpheres.value.filter(s => s !== sphere);
 
-      renderer.renderLists.dispose();
-
-      requestAnimationFrame(() => {
-        scene.updateMatrixWorld(true);
-        camera.updateProjectionMatrix();
-        renderer.clear();
-        renderer.render(scene, camera);
-      });
+      // 씬을 다시 렌더링합니다.
+      renderer.renderLists.dispose(); // 렌더링 리스트를 정리하여 삭제된 객체를 제거
+      renderer.render(scene, camera);
 
       cleanScene();
+
     };
+
 
     const cleanScene = () => {
       const objectsToRemove = [];
@@ -243,6 +251,7 @@ export default {
 
       renderer.renderLists.dispose();
       renderer.render(scene, camera);
+
     };
 
     const initThree = () => {
@@ -250,15 +259,13 @@ export default {
         if (event.key === 'Delete') {
           event.preventDefault();
           if (selectedSpheres.value.length > 0) {
-            const sphereToDelete = selectedSpheres.value.pop(); // 하나씩 삭제하도록 수정
+            const sphereToDelete = selectedSpheres.value.pop(); // 선택된 구체 하나를 삭제
             deleteSphere(sphereToDelete);
 
             requestAnimationFrame(() => {
               scene.updateMatrixWorld(true);
               camera.updateProjectionMatrix();
-              renderer.clear();
               renderer.render(scene, camera);
-              cleanScene();
             });
           }
         } else if (event.key === 'b' || (event.ctrlKey && event.key === 'b')) {
@@ -272,16 +279,18 @@ export default {
         }
       };
 
+
       window.addEventListener('keydown', onKeydown);
 
       // 메인 씬 설정
       scene = new THREE.Scene();
-      camera = new THREE.PerspectiveCamera(45, window.innerWidth * 0.5 / window.innerHeight, 0.1, 1000);
+      const aspect = (sceneContainer.value.clientWidth) / (sceneContainer.value.clientHeight); // 씬 컨테이너의 크기에 맞춤
+      camera = new THREE.PerspectiveCamera(45, aspect, 0.1, 1000);
       camera.position.set(0, 5, 5);
       camera.lookAt(new THREE.Vector3(0, 0, 0));
 
       renderer = new THREE.WebGLRenderer({ antialias: true });
-      renderer.setSize(window.innerWidth * 0.5, window.innerHeight);
+      renderer.setSize(window.innerWidth * 0.5, window.innerHeight * 0.8); // 80vh에 맞춰 조정
       renderer.setClearColor(0xcccccc, 0.5);
       sceneContainer.value.appendChild(renderer.domElement);
 
@@ -490,55 +499,66 @@ export default {
       animate();
 
       window.addEventListener("resize", () => {
-        camera.aspect = window.innerWidth / window.innerHeight;
+        const width = sceneContainer.value.clientWidth;
+        const height = sceneContainer.value.clientHeight;
+
+        camera.aspect = width / height;
         camera.updateProjectionMatrix();
-        renderer.setSize(window.innerWidth, window.innerHeight);
+
+        renderer.setSize(width, height);
+        renderer.setPixelRatio(window.devicePixelRatio);
+
         controls.update();
       });
+
     };
 
-    const addSphere = () => {
-      const parts = inputString.value.split(' ');
-      if (parts.length !== 4) {
-        alert('올바른 형식으로 입력해주세요. 예: I -1 -1 -1');
-        return;
-      }
+    // addSphere 함수를 addSpheres 함수로 변경하여 여러 줄 입력을 처리하도록 수정
+    const addSpheres = () => {
+      const lines = inputString.value.trim().split('\n'); // 줄바꿈으로 입력을 분리
+      lines.forEach(line => {
+        const parts = line.trim().split(' '); // 각 줄을 공백으로 분리
+        if (parts.length !== 4) {
+          alert('올바른 형식으로 입력해주세요. 예: H 1 1 1');
+          return;
+        }
 
-      const symbol = parts[0];
-      const x = parseFloat(parts[1]);
-      const y = parseFloat(parts[2]);
-      const z = parseFloat(parts[3]);
+        const symbol = parts[0];
+        const x = parseFloat(parts[1]);
+        const y = parseFloat(parts[2]);
+        const z = parseFloat(parts[3]);
 
-      if (isNaN(x) || isNaN(y) || isNaN(z)) {
-        alert('올바른 좌표값을 입력해주세요.');
-        return;
-      }
+        if (isNaN(x) || isNaN(y) || isNaN(z)) {
+          alert('올바른 좌표값을 입력해주세요.');
+          return;
+        }
 
-      const element = elements.value.find(el => el.symbol === symbol);
-      if (!element) {
-        alert('올바른 원소 기호를 입력해주세요.');
-        return;
-      }
+        const element = elements.value.find(el => el.symbol === symbol);
+        if (!element) {
+          alert('올바른 원소 기호를 입력해주세요.');
+          return;
+        }
 
-      const texture = createSphereTexture(symbol);
+        const texture = createSphereTexture(symbol);
 
-      const geometry = new THREE.SphereGeometry(0.4, 64, 64);
-      const material = new THREE.MeshPhongMaterial({
-        color: element.color,
-        map: texture,
-        shininess: 100,
-        transparent: true,
-        opacity: 1,
+        const geometry = new THREE.SphereGeometry(0.4, 64, 64);
+        const material = new THREE.MeshPhongMaterial({
+          color: element.color,
+          map: texture,
+          shininess: 100,
+          transparent: true,
+          opacity: 1,
+        });
+
+        const sphere = new THREE.Mesh(geometry, material);
+        sphere.position.set(x, y, z);
+        sphere.name = `${symbol}`;
+
+        scene.add(sphere);
+        spheres.value.push(sphere);
       });
 
-      const sphere = new THREE.Mesh(geometry, material);
-      sphere.position.set(x, y, z);
-      sphere.name = `${symbol}`;
-
-      scene.add(sphere);
-      spheres.value.push(sphere);
-
-      inputString.value = '';
+      inputString.value = ''; // 입력 필드 초기화
       controls.update();
       renderer.render(scene, camera);
     };
@@ -625,7 +645,7 @@ export default {
       spheres,
       selectedSpheres,
       sceneContainer,
-      addSphere,
+      addSpheres, // addSphere 대신 addSpheres를 사용
       axesContainer
     };
   },
@@ -633,6 +653,15 @@ export default {
 </script>
 
 <style>
+#app {
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
+}
+
 html,
 body {
   margin: 0;
@@ -645,23 +674,33 @@ body {
 .container {
   display: flex;
   width: 100%;
-  height: 100vh;
-  position: relative;
+  height: 80vh;
+  max-width: 1200px;
+  /* 컨테이너의 최대 너비 설정 (선택사항) */
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+  /* 컨테이너에 약간의 그림자 추가 (선택사항) */
 }
 
 .scene-container {
   width: 50%;
-  height: 100vh;
-  background-color: white;
+  height: 100%;
+  overflow: hidden;
 }
 
 .controls-container {
   width: 50%;
-  height: 100vh;
+  height: 100%;
   background-color: rgba(255, 255, 255, 0.9);
   padding: 12px;
-  position: relative;
+  overflow-y: auto;
 }
+
+/* 캔버스 스타일 */
+.scene-container canvas {
+  width: 100% !important;
+  height: 100% !important;
+}
+
 
 
 .coordinates {
