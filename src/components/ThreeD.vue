@@ -3,13 +3,12 @@
     <div ref="sceneContainer" class="scene-container"></div>
     <div class="controls-container p-[12px] rounded-xl">
       <div class="flex items-center justify-start">
-        <!-- input을 textarea로 변경하여 여러 줄 입력 가능하도록 수정 -->
+        <!-- textarea의 크기를 늘려 여러 줄 입력이 가능하도록 수정 -->
         <textarea 
           v-model="inputString" 
-          placeholder="예: H 1 1 1&#10;C 2 2 2" 
-          class="rounded-lg text-[16px] p-2 border border-gray-500 mr-2 placeholder-gray-600">
+          placeholder="예: H 1 1 1\nC 2 2 2" 
+          class="rounded-lg text-[16px] p-2 border border-gray-500 mr-2 placeholder-gray-600 h-[150px] w-[300px] resize-none">
         </textarea>
-        <button @click="addSpheres" class="h-[40px] bg-gray-500 rounded-lg text-white p-2">추가하기</button>
       </div>
       <div class="coordinates">
         <div v-for="(sphere, index) in spheres" :key="sphere.uuid">
@@ -35,11 +34,13 @@
 </template>
 
 
+
 <script>
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, watch } from 'vue';
 import * as THREE from "three";
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 import { ArrowHelper } from 'three';
+
 export default {
   name: "ThreeDView",
   setup() {
@@ -170,11 +171,7 @@ export default {
       { symbol: "Ts", name: "Tennessine", color: 0x1E90FF },
       { symbol: "Og", name: "Oganesson", color: 0xFF4500 },
     ]);
-
-    let scene, camera, renderer, light, controls;
-    let axesScene, axesCamera, axesRenderer, axesHelper;
-
-    const createSphereTexture = (text) => {
+     const createSphereTexture = (text) => {
       const canvas = document.createElement('canvas');
       const context = canvas.getContext('2d');
       const size = 256;
@@ -195,64 +192,81 @@ export default {
       return new THREE.CanvasTexture(canvas);
     };
 
-    const deleteSphere = (sphere) => {
-      // 본드를 제거합니다.
-      bonds.value = bonds.value.filter(bond => {
-        if (bond.sphere1 === sphere || bond.sphere2 === sphere) {
-          scene.remove(bond.bond);
-          bond.bond.geometry.dispose();
-          bond.bond.material.dispose();
-          return false;
-        }
-        return true;
+    const addSphere = (symbol, x, y, z) => {
+      const element = elements.value.find(el => el.symbol === symbol);
+      if (!element) {
+        return;
+      }
+
+      const texture = createSphereTexture(symbol);
+
+      const geometry = new THREE.SphereGeometry(0.4, 64, 64);
+      const material = new THREE.MeshPhongMaterial({
+        color: element.color,
+        map: texture,
+        shininess: 100,
+        transparent: true,
+        opacity: 1,
       });
 
-      // 선택된 구체의 반투명 상태를 원래대로 돌립니다.
-      sphere.material.opacity = 1;
-      sphere.material.transparent = false;
+      const sphere = new THREE.Mesh(geometry, material);
+      sphere.position.set(x, y, z);
+      sphere.name = `${symbol} ${x} ${y} ${z}`;
 
-      // 구체를 씬에서 제거합니다.
+      scene.add(sphere);
+      spheres.value.push(sphere);
+      renderScene();
+    };
+
+    const removeSphere = (sphere) => {
       scene.remove(sphere);
       if (sphere.geometry) sphere.geometry.dispose();
       if (sphere.material) {
         if (sphere.material.map) sphere.material.map.dispose();
         sphere.material.dispose();
       }
-
-      // 구체 배열에서 제거합니다.
       spheres.value = spheres.value.filter(s => s !== sphere);
-      selectedSpheres.value = selectedSpheres.value.filter(s => s !== sphere);
-
-      // 씬을 다시 렌더링합니다.
-      renderer.renderLists.dispose(); // 렌더링 리스트를 정리하여 삭제된 객체를 제거
-      renderer.render(scene, camera);
-
-      cleanScene();
-
+      renderScene();
     };
 
+    const renderScene = () => {
+      renderer.render(scene, camera);
+    };
 
-    const cleanScene = () => {
-      const objectsToRemove = [];
-      scene.traverse((object) => {
-        if (object.type === 'Mesh' && !spheres.value.includes(object)) {
-          objectsToRemove.push(object);
+    const validateAndAddSpheres = () => {
+      const newSpheres = [];
+      const lines = inputString.value.trim().split('\n');
+      lines.forEach(line => {
+        const parts = line.trim().split(' ');
+        if (parts.length === 4) {
+          const [symbol, x, y, z] = parts;
+          const posX = parseFloat(x);
+          const posY = parseFloat(y);
+          const posZ = parseFloat(z);
+
+          if (!isNaN(posX) && !isNaN(posY) && !isNaN(posZ)) {
+            const sphereKey = `${symbol} ${posX} ${posY} ${posZ}`;
+            newSpheres.push(sphereKey);
+
+            if (!spheres.value.some(sphere => sphere.name === sphereKey)) {
+              addSphere(symbol, posX, posY, posZ);
+            }
+          }
         }
       });
 
-      objectsToRemove.forEach((object) => {
-        scene.remove(object);
-        if (object.geometry) object.geometry.dispose();
-        if (object.material) {
-          if (object.material.map) object.material.map.dispose();
-          object.material.dispose();
+      // 기존 구체 중에서 새로운 입력에 없는 구체는 제거
+      spheres.value.forEach(sphere => {
+        if (!newSpheres.includes(sphere.name)) {
+          removeSphere(sphere);
         }
       });
-
-      renderer.renderLists.dispose();
-      renderer.render(scene, camera);
-
     };
+
+    watch(inputString, validateAndAddSpheres);
+
+    let scene, camera, renderer, light, controls;
+    let axesScene, axesCamera, axesRenderer;
 
     const initThree = () => {
       const onKeydown = (event) => {
@@ -260,7 +274,7 @@ export default {
           event.preventDefault();
           if (selectedSpheres.value.length > 0) {
             const sphereToDelete = selectedSpheres.value.pop(); // 선택된 구체 하나를 삭제
-            deleteSphere(sphereToDelete);
+            removeSphere(sphereToDelete);
 
             requestAnimationFrame(() => {
               scene.updateMatrixWorld(true);
@@ -278,7 +292,6 @@ export default {
           removeAllBonds();
         }
       };
-
 
       window.addEventListener('keydown', onKeydown);
 
@@ -469,7 +482,6 @@ export default {
         }
       };
 
-
       window.addEventListener("mousedown", onMouseDown, false);
       window.addEventListener("contextmenu", onContextMenu, false);
       window.addEventListener("mousemove", onMouseMove, false);
@@ -510,57 +522,6 @@ export default {
 
         controls.update();
       });
-
-    };
-
-    // addSphere 함수를 addSpheres 함수로 변경하여 여러 줄 입력을 처리하도록 수정
-    const addSpheres = () => {
-      const lines = inputString.value.trim().split('\n'); // 줄바꿈으로 입력을 분리
-      lines.forEach(line => {
-        const parts = line.trim().split(' '); // 각 줄을 공백으로 분리
-        if (parts.length !== 4) {
-          alert('올바른 형식으로 입력해주세요. 예: H 1 1 1');
-          return;
-        }
-
-        const symbol = parts[0];
-        const x = parseFloat(parts[1]);
-        const y = parseFloat(parts[2]);
-        const z = parseFloat(parts[3]);
-
-        if (isNaN(x) || isNaN(y) || isNaN(z)) {
-          alert('올바른 좌표값을 입력해주세요.');
-          return;
-        }
-
-        const element = elements.value.find(el => el.symbol === symbol);
-        if (!element) {
-          alert('올바른 원소 기호를 입력해주세요.');
-          return;
-        }
-
-        const texture = createSphereTexture(symbol);
-
-        const geometry = new THREE.SphereGeometry(0.4, 64, 64);
-        const material = new THREE.MeshPhongMaterial({
-          color: element.color,
-          map: texture,
-          shininess: 100,
-          transparent: true,
-          opacity: 1,
-        });
-
-        const sphere = new THREE.Mesh(geometry, material);
-        sphere.position.set(x, y, z);
-        sphere.name = `${symbol}`;
-
-        scene.add(sphere);
-        spheres.value.push(sphere);
-      });
-
-      inputString.value = ''; // 입력 필드 초기화
-      controls.update();
-      renderer.render(scene, camera);
     };
 
     const toggleBond = () => {
@@ -645,7 +606,6 @@ export default {
       spheres,
       selectedSpheres,
       sceneContainer,
-      addSpheres, // addSphere 대신 addSpheres를 사용
       axesContainer
     };
   },
@@ -701,8 +661,6 @@ body {
   height: 100% !important;
 }
 
-
-
 .coordinates {
   margin-top: 10px;
   padding: 10px;
@@ -712,8 +670,6 @@ body {
   overflow-y: auto;
   max-height: 200px;
 }
-
-
 
 .instructions {
   position: absolute;
@@ -739,3 +695,4 @@ body {
   border-radius: 5px;
 }
 </style>
+
