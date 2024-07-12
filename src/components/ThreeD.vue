@@ -234,34 +234,49 @@ export default {
     };
 
     const validateAndAddSpheres = () => {
-      const newSpheres = [];
-      const lines = inputString.value.trim().split('\n');
-      lines.forEach(line => {
-        const parts = line.trim().split(' ');
-        if (parts.length === 4) {
-          const [symbol, x, y, z] = parts;
-          const posX = parseFloat(x);
-          const posY = parseFloat(y);
-          const posZ = parseFloat(z);
+  const lines = inputString.value.trim().split('\n');
+  const newSpheres = [];
 
-          if (!isNaN(posX) && !isNaN(posY) && !isNaN(posZ)) {
-            const sphereKey = `${symbol} ${posX} ${posY} ${posZ}`;
-            newSpheres.push(sphereKey);
+  lines.forEach(line => {
+    const parts = line.trim().split(' ');
+    if (parts.length === 4) {
+      const [symbol, x, y, z] = parts;
+      const posX = parseFloat(x);
+      const posY = parseFloat(y);
+      const posZ = parseFloat(z);
 
-            if (!spheres.value.some(sphere => sphere.name === sphereKey)) {
-              addSphere(symbol, posX, posY, posZ);
-            }
-          }
-        }
-      });
+      if (!isNaN(posX) && !isNaN(posY) && !isNaN(posZ)) {
+        newSpheres.push({ symbol, posX, posY, posZ });
+      }
+    }
+  });
 
-      // 기존 구체 중에서 새로운 입력에 없는 구체는 제거
-      spheres.value.forEach(sphere => {
-        if (!newSpheres.includes(sphere.name)) {
-          removeSphere(sphere);
-        }
-      });
-    };
+  // 기존 구체 업데이트 또는 제거
+  spheres.value = spheres.value.filter(sphere => {
+    const [symbol] = sphere.name.split(' ');
+    const matchingSphere = newSpheres.find(newSphere => newSphere.symbol === symbol);
+
+    if (matchingSphere) {
+      // 위치 업데이트
+      sphere.position.set(matchingSphere.posX, matchingSphere.posY, matchingSphere.posZ);
+      sphere.name = `${symbol} ${matchingSphere.posX} ${matchingSphere.posY} ${matchingSphere.posZ}`;
+      return true;
+    } else {
+      // 새 입력에 없는 구체는 제거
+      removeSphere(sphere);
+      return false;
+    }
+  });
+
+  // 새로운 구체 추가
+  newSpheres.forEach(({ symbol, posX, posY, posZ }) => {
+    if (!spheres.value.some(sphere => sphere.name.startsWith(`${symbol} `))) {
+      addSphere(symbol, posX, posY, posZ);
+    }
+  });
+
+  renderScene();
+};
 
     watch(inputString, validateAndAddSpheres);
 
