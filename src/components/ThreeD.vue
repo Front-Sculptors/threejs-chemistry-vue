@@ -4,9 +4,7 @@
     <div class="controls-container p-[12px] rounded-xl">
       <div class="flex items-center justify-start">
         <!-- textarea의 크기를 늘려 여러 줄 입력이 가능하도록 수정 -->
-        <textarea 
-          v-model="inputString" 
-          placeholder="예: H 1 1 1\nC 2 2 2" 
+        <textarea v-model="inputString" placeholder="예: H 1 1 1\nC 2 2 2"
           class="rounded-lg text-[16px] p-2 border border-gray-500 mr-2 placeholder-gray-600 h-[150px] w-[300px] resize-none">
         </textarea>
       </div>
@@ -14,7 +12,8 @@
         <div v-for="(sphere, index) in spheres" :key="sphere.uuid">
           <p class="text-[16px] font-medium">
             <span class="text-red-500 text-[18px]">{{ sphere.name }} :</span>
-            x={{ sphere.position.x.toFixed(2) }}, y={{ sphere.position.y.toFixed(2) }}, z={{ sphere.position.z.toFixed(2) }}
+            x={{ sphere.position.x.toFixed(2) }}, y={{ sphere.position.y.toFixed(2) }}, z={{
+              sphere.position.z.toFixed(2) }}
           </p>
         </div>
       </div>
@@ -171,7 +170,7 @@ export default {
       { symbol: "Ts", name: "Tennessine", color: 0x1E90FF },
       { symbol: "Og", name: "Oganesson", color: 0xFF4500 },
     ]);
-     const createSphereTexture = (text) => {
+    const createSphereTexture = (text) => {
       const canvas = document.createElement('canvas');
       const context = canvas.getContext('2d');
       const size = 256;
@@ -233,50 +232,70 @@ export default {
       renderer.render(scene, camera);
     };
 
+    const cleanScene = () => {
+      const objectsToRemove = [];
+      scene.traverse((object) => {
+        if (object.type === 'Mesh' && !spheres.value.includes(object)) {
+          objectsToRemove.push(object);
+        }
+      });
+
+      objectsToRemove.forEach((object) => {
+        scene.remove(object);
+        if (object.geometry) object.geometry.dispose();
+        if (object.material) {
+          if (object.material.map) object.material.map.dispose();
+          object.material.dispose();
+        }
+      });
+
+      renderer.renderLists.dispose();
+      renderer.render(scene, camera);
+    };
+
     const validateAndAddSpheres = () => {
-  const lines = inputString.value.trim().split('\n');
-  const newSpheres = [];
+      const lines = inputString.value.trim().split('\n');
+      const newSpheres = [];
+      let isValid = true;
 
-  lines.forEach(line => {
-    const parts = line.trim().split(' ');
-    if (parts.length === 4) {
-      const [symbol, x, y, z] = parts;
-      const posX = parseFloat(x);
-      const posY = parseFloat(y);
-      const posZ = parseFloat(z);
+      lines.forEach(line => {
+        const parts = line.trim().split(' ');
+        if (parts.length !== 4) {
+          isValid = false;
+          return;
+        }
 
-      if (!isNaN(posX) && !isNaN(posY) && !isNaN(posZ)) {
+        const [symbol, x, y, z] = parts;
+        const posX = parseFloat(x);
+        const posY = parseFloat(y);
+        const posZ = parseFloat(z);
+
+        if (isNaN(posX) || isNaN(posY) || isNaN(posZ)) {
+          isValid = false;
+          return;
+        }
+
         newSpheres.push({ symbol, posX, posY, posZ });
+      });
+
+      if (!isValid) {
+        // 형식이 맞지 않으면 모든 구체 제거
+        spheres.value.forEach(removeSphere);
+        spheres.value = [];
+        cleanScene();
+      } else {
+        // 형식이 맞으면 모든 구체 재생성
+        spheres.value.forEach(removeSphere);
+        spheres.value = [];
+        cleanScene();
+
+        newSpheres.forEach(({ symbol, posX, posY, posZ }) => {
+          addSphere(symbol, posX, posY, posZ);
+        });
       }
-    }
-  });
 
-  // 기존 구체 업데이트 또는 제거
-  spheres.value = spheres.value.filter(sphere => {
-    const [symbol] = sphere.name.split(' ');
-    const matchingSphere = newSpheres.find(newSphere => newSphere.symbol === symbol);
-
-    if (matchingSphere) {
-      // 위치 업데이트
-      sphere.position.set(matchingSphere.posX, matchingSphere.posY, matchingSphere.posZ);
-      sphere.name = `${symbol} ${matchingSphere.posX} ${matchingSphere.posY} ${matchingSphere.posZ}`;
-      return true;
-    } else {
-      // 새 입력에 없는 구체는 제거
-      removeSphere(sphere);
-      return false;
-    }
-  });
-
-  // 새로운 구체 추가
-  newSpheres.forEach(({ symbol, posX, posY, posZ }) => {
-    if (!spheres.value.some(sphere => sphere.name.startsWith(`${symbol} `))) {
-      addSphere(symbol, posX, posY, posZ);
-    }
-  });
-
-  renderScene();
-};
+      renderScene();
+    };
 
     watch(inputString, validateAndAddSpheres);
 
@@ -710,4 +729,3 @@ body {
   border-radius: 5px;
 }
 </style>
-
